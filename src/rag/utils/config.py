@@ -119,6 +119,8 @@ class Config:
         Args:
             config_file: Path to save configuration
         """
-        os.makedirs(os.path.dirname(config_file), exist_ok=True)
+        config_dir = os.path.dirname(config_file)
+        if config_dir:
+            os.makedirs(config_dir, exist_ok=True)
         with open(config_file, 'w') as f:
             json.dump(self.config, f, indent=2)
