@@ -42,6 +42,40 @@ rag-knowledge-worker/
 └── README.md                      # This file
 ```
 
+## Modules
+
+### PDF Converter
+
+Convert PDF files to Markdown format for easy ingestion into the RAG system.
+
+```bash
+python -m src.pdf_converter --input data/raw --output data/processed/pdf_markdown
+```
+
+Features:
+- Extracts text from text-based PDFs
+- Preserves folder structure in output
+- Logs and skips image-based PDFs (scanned documents)
+- Handles encrypted PDFs gracefully
+- Provides detailed analysis reports
+
+**CLI Usage:**
+```bash
+# Convert PDFs
+python -m src.pdf_converter --input data/raw --output data/processed/pdf_markdown
+
+# Analyze only (no conversion)
+python -m src.pdf_converter --input data/raw --analyze-only
+```
+
+**Programmatic Usage:**
+```python
+from src.pdf_converter import convert_all_pdfs, analyze_pdfs
+from pathlib import Path
+
+stats = convert_all_pdfs(Path("data/raw"), Path("data/processed/pdf_markdown"))
+```
+
 ## Quick Start
 
 ### Installation

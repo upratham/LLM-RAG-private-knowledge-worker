@@ -3,6 +3,11 @@ RAG LLM Private Knowledge Worker - Main package
 """
 
 __version__ = "0.1.0"
+
+# Import submodules for convenience
+from . import pdf_converter
+
+__all__ = ["pdf_converter"]
 __author__ = "PRATHAMESH SUHAS URAVANE"
 
 from .data_ingestion import DataIngestionPipeline

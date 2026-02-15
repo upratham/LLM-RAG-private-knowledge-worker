@@ -40,7 +40,7 @@ GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "").strip()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
 MODEL_NAME = "gpt-4.1-nano"
 
-OUT_DIR = PROJECT_ROOT / "data" / "raw" / "repo_summaries"
+OUT_DIR = PROJECT_ROOT / "data" / "processed" / "repo_summaries"
 
 # Create output directory
 OUT_DIR.mkdir(parents=True, exist_ok=True)
