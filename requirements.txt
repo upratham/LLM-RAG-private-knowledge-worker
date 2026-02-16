@@ -11,6 +11,7 @@ torch
 transformers
 tqdm
 openai
+pydantic
 gradio
 langchain
 langchain-core
@@ -36,3 +37,7 @@ sentence_transformers
 feedparser
 protobuf==3.20.2
 wandb
+pdfplumber
+langchain-huggingface==1.2.0
+transformers<5
+huggingface-hub<1.0.0

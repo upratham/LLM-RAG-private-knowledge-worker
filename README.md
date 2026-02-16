@@ -10,8 +10,10 @@ A comprehensive Retrieval-Augmented Generation (RAG) system for building intelli
 - **High-Quality Embeddings**: e5-large-v2 model (1024-dim) via HuggingFace
 - **Persistent Vector Store**: Chroma vector database with metadata support
 - **Advanced Retrieval**: Semantic search, metadata filtering, MMR (Max Marginal Relevance)
+- **LLM-Based Re-ranking**: Intelligent chunk re-ranking using Ollama with structured outputs
+- **Query Rewriting**: Automatic query optimization for better retrieval
 - **Interactive Visualization**: 2D/3D t-SNE visualizations with Plotly
-- **LLM Integration**: Seamless integration with OpenAI, Anthropic, and other providers via LangChain
+- **LLM Integration**: Seamless integration with Ollama, OpenAI, Anthropic, and other providers via LangChain
 - **GitHub Documentation Generator**: Automatically generate comprehensive documentation for GitHub repositories
 - **Modular Architecture**: Built on LangChain for easy customization and extension
 
@@ -21,8 +23,9 @@ A comprehensive Retrieval-Augmented Generation (RAG) system for building intelli
 - **Embeddings**: HuggingFace Transformers (e5-large-v2)
 - **Vector Store**: ChromaDB with persistent storage
 - **Visualization**: Plotly & scikit-learn (t-SNE)
-- **LLM Providers**: OpenAI, Anthropic (via LangChain)
+- **LLM Providers**: Ollama (local), OpenAI, Anthropic (via LangChain)
 - **Document Processing**: PyPDF2, pdfplumber, LangChain text splitters
+- **Structured Outputs**: Pydantic models with OpenAI-compatible Ollama API
 
 ## Project Structure
 
@@ -33,15 +36,16 @@ rag-knowledge-worker/
 │   ├── embedder.py                # HuggingFace embeddings & Chroma integration
 │   ├── visualize_vector_db.py     # t-SNE visualization utilities
 │   ├── pdf_converter.py           # PDF to Markdown conversion
-│   ├── rag_system.py              # Main RAG orchestrator (legacy)
+│   ├── rag_system.py              # Advanced RAG with re-ranking & query rewrite
+│   ├── retriever.py               # Retriever configuration
 │   ├── github_docs/               # GitHub documentation generator
 │   ├── llm/                       # LLM integrations
-│   ├── retrieval/                 # Retrieval mechanisms
-│   ├── vector_store/              # Vector database management (legacy)
+│   ├── vector_store/              # Vector database management
 │   └── utils/                     # Utility functions
 ├── notebooks/                     # Jupyter notebooks
 │   └── pipeline.ipynb             # Complete RAG pipeline demonstration
 ├── config/                        # Configuration files
+│   └── config.json                # System configuration
 ├── data/                          # Data storage
 │   ├── raw/                      # Raw documents
 │   └── processed/                # Processed documents
@@ -51,6 +55,10 @@ rag-knowledge-worker/
 │   ├── chroma.sqlite3             # Metadata database
 │   └── [collection-id]/           # Vector data and indices
 ├── docs/                          # Documentation
+│   ├── API_REFERENCE.md           # API documentation
+│   ├── ARCHITECTURE.md            # System architecture
+│   ├── GETTING_STARTED.md         # Getting started guide
+│   └── INTEGRATION_GUIDE.md       # Integration guide
 ├── logs/                          # Application logs
 ├── main.py                        # Entry point
 ├── requirements.txt               # Python dependencies
@@ -211,14 +219,23 @@ Persistent vector database with metadata support.
 - **Search**: Similarity search, metadata filtering, MMR
 - **Scalability**: Handles up to 10M vectors efficiently
 
-### 4. Visualization (src/visualize_vector_db.py)
+### 4. Advanced RAG System (src/rag_system.py)
+Enhanced RAG capabilities with Ollama integration.
+
+- **Query Rewriting**: Optimize user queries for better retrieval
+- **LLM-Based Re-ranking**: Re-order chunks by relevance using structured outputs
+- **Chunk Merging**: Combine and deduplicate results
+- **System Prompts**: Pre-configured templates for personal knowledge bases
+- **Ollama Integration**: Local LLM support with OpenAI-compatible API
+
+### 5. Visualization (src/visualize_vector_db.py)
 Interactive visualization of vector embeddings.
 
 - `visualize_2d()`: 2D t-SNE scatter plot with hover information
 - `visualize_3d()`: 3D t-SNE interactive visualization
 - **Features**: Color-coded by document type, exportable to HTML
 
-### 5. PDF Converter (src/pdf_converter.py)
+### 6. PDF Converter (src/pdf_converter.py)
 Convert PDF files to Markdown format.
 
 - Extract text from text-based PDFs
@@ -226,14 +243,15 @@ Convert PDF files to Markdown format.
 - Detailed analysis reports
 - Handle encrypted/scanned PDFs gracefully
 
-### 6. LLM Integration (src/llm/)
+### 7. LLM Integration (src/llm/)
 Connect to language models for response generation.
 
+- **Ollama**: Local LLM support (llama3.2, etc.)
 - **OpenAI**: GPT-3.5, GPT-4 support
 - **LangChain Integration**: Easy provider switching
 - **Retrieval QA**: Built-in question answering chains
 
-### 7. GitHub Documentation Generator (src/github_docs/)
+### 8. GitHub Documentation Generator (src/github_docs/)
 Generate comprehensive documentation for GitHub repositories.
 
 - **github_docs_generator.py**: Automated documentation generation
@@ -261,27 +279,63 @@ VECTOR_DB_PATH=./vectors
 DATA_PATH=./data
 ```
 
+### Ollama Setup
+
+Install and run Ollama for local LLM support:
+
+```bash
+# Install Ollama (visit https://ollama.ai)
+# macOS/Linux:
+curl -fsSL https://ollama.ai/install.sh | sh
+
+# Windows: Download from https://ollama.ai/download
+
+# Start Ollama server
+ollama serve
+
+# Pull required model
+ollama pull llama3.2
+
+# Verify installation
+curl http://localhost:11434/v1/models
+```
+
 ### Configuration File (config/config.json)
 
 ```json
 {
   "chunking": {
-    "chunk_size": 1000,
-    "chunk_overlap": 200
+    "chunk_size": 700,
+    "chunk_overlap": 200,
+    "strategy": "recursive"
   },
   "embedding": {
-    "model": "intfloat/e5-large-v2",
-    "dimension": 1024,
-    "normalize": true
+    "model": "sentence-transformers/all-MiniLM-L6-v2",
+    "dimension": 384,
+    "batch_size": 32
   },
   "retrieval": {
     "top_k": 5,
-    "search_type": "similarity"
+    "similarity_threshold": 0.3,
+    "enable_reranking": true
   },
   "llm": {
-    "provider": "openai",
-    "model": "gpt-4",
-    "temperature": 0.7
+    "provider": "ollama",
+    "model": "llama3.2",
+    "temperature": 0,
+    "max_tokens": 500,
+    "base_url": "http://localhost:11434"
+  },
+  "ollama": {
+    "host": "http://localhost:11434",
+    "openai_compatible_url": "http://localhost:11434/v1",
+    "model": "llama3.2",
+    "api_key": "ollama"
+  },
+  "advanced_rag": {
+    "query_rewriting": true,
+    "chunk_reranking": true,
+    "merge_strategy": "append_unique"
   },
   "github_docs": {
     "model": "gpt-4.1-nano",

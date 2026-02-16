@@ -349,6 +349,173 @@ print(f"Vector dimensions: {vectors.shape}")
 print(f"Document types: {set(doc_types)}")
 ```
 
+## RAG System Module
+
+### Overview
+The RAG system module (`src/rag_system.py`) provides advanced retrieval-augmented generation capabilities with query rewriting, chunk re-ranking, and LLM integration.
+
+### Configuration
+
+**Ollama Integration:**
+```python
+from src.rag_system import ollama_host, ollama_base_url, ollama_model, ollama_client, llm
+
+# Variables available:
+# ollama_host = "http://localhost:11434"
+# ollama_base_url = "http://localhost:11434/v1"  # OpenAI-compatible endpoint
+# ollama_model = "llama3.2"
+# ollama_client = OpenAI(base_url=ollama_base_url, api_key="ollama")
+# llm = Ollama(model="llama3.2", base_url=ollama_host, temperature=0)
+```
+
+### RankOrder Model
+
+Pydantic model for structured chunk re-ranking.
+
+```python
+from src.rag_system import RankOrder
+
+class RankOrder(BaseModel):
+    order: list[int] = Field(description="Order of relevance of chunks, from most relevant to least relevant, by chunk id number")
+```
+
+### rerank()
+
+Re-rank retrieved chunks using LLM-based relevance scoring with structured outputs.
+
+```python
+from src.rag_system import rerank
+
+reranked_chunks = rerank(question="What is the user's education?", chunks=chunks)
+```
+
+**Parameters:**
+- `question` (str): The user's query
+- `chunks` (List[Document]): Retrieved document chunks
+
+**Returns:** List of re-ranked Document objects
+
+**Features:**
+- Uses Ollama's OpenAI-compatible API with structured outputs
+- Leverages `chat.completions.parse()` for Pydantic model parsing
+- Instructions for LLM to rank by relevance
+- Preserves all chunks in new order
+
+### fetch_unranked_chunks()
+
+Retrieve chunks from vector store without re-ranking.
+
+```python
+from src.rag_system import fetch_unranked_chunks
+
+chunks = fetch_unranked_chunks(question="user education", retriever=retriever)
+```
+
+**Parameters:**
+- `question` (str): Search query
+- `retriever`: LangChain retriever instance
+
+**Returns:** List of Document objects
+
+### rewrite_query()
+
+Rewrite user queries into focused search queries optimized for knowledge base retrieval.
+
+```python
+from src.rag_system import rewrite_query
+
+refined_query = rewrite_query(
+    question="Where did he study?",
+    history=[{"role": "user", "content": "Tell me about John"}]
+)
+```
+
+**Parameters:**
+- `question` (str): Original user question
+- `history` (list, optional): Conversation history for context
+
+**Returns:** Rewritten query string
+
+**Features:**
+- Removes vague references
+- Adds context from conversation history
+- Optimizes for semantic search
+- Follows strict output format rules
+
+### merge_chunks()
+
+Merge original and re-ranked chunks, removing duplicates.
+
+```python
+from src.rag_system import merge_chunks
+
+merged = merge_chunks(chunks=original_chunks, reranked=reranked_chunks)
+```
+
+**Parameters:**
+- `chunks` (List[Document]): Original chunks
+- `reranked` (List[Document]): Re-ranked chunks
+
+**Returns:** Merged list of unique Document objects
+
+### System Prompt Template
+
+```python
+from src.rag_system import SYSTEM_PROMPT_TEMPLATE
+
+# Template for personal knowledge base assistant
+SYSTEM_PROMPT_TEMPLATE = """
+You are a helpful, knowledgeable assistant with access to a user's personal knowledge base.
+Your role is to answer questions about the user's background, experience, achievements, and projects based on provided context.
+
+while answering questions:
+- Don't refer to any document.
+- Maintain a polite and friendly tone
+- If information is not available in the provided context, clearly state that you don't have that information
+- Don't mention name of any document use it for your context only.
+- While answering strictly do not mention any reference also, like "as per document 1, document 2, according to knowledge base" etc.
+
+Context:
+{context}
+"""
+```
+
+## Advanced RAG Pipeline Example
+
+```python
+from pathlib import Path
+from src.data_ingestion import fetch_documents, chunking
+from src.embedder import embedder
+from src.retriever import get_retriever
+from src.rag_system import rewrite_query, fetch_unranked_chunks, rerank, llm, SYSTEM_PROMPT_TEMPLATE
+from langchain_core.messages import SystemMessage, HumanMessage
+
+# 1. Setup vector store
+db_path = Path("./vectors")
+retriever = get_retriever(db_path=db_path)
+
+# 2. Process user query
+user_question = "Where did the person complete their education?"
+conversation_history = []
+
+# 3. Rewrite query for better retrieval
+refined_query = rewrite_query(user_question, conversation_history)
+print(f"Refined query: {refined_query}")
+
+# 4. Fetch and re-rank chunks
+chunks = fetch_unranked_chunks(refined_query, retriever)
+reranked_chunks = rerank(refined_query, chunks)
+
+# 5. Generate answer with LLM
+context = "\n\n".join(chunk.page_content for chunk in reranked_chunks)
+system_prompt = SYSTEM_PROMPT_TEMPLATE.format(context=context)
+response = llm.invoke([
+    SystemMessage(content=system_prompt),
+    HumanMessage(content=user_question)
+])
+print(response)
+```
+
 ## Configuration
 
 ### Environment Variables
@@ -360,6 +527,15 @@ ANTHROPIC_API_KEY=sk-ant-...
 HUGGINGFACE_API_TOKEN=hf_...
 ```
 
+### Ollama Setup
+
+Ensure Ollama is running locally:
+```bash
+# Start Ollama server
+ollama serve
+
+# Pull required model
+ollama pull llama3.2
 ### LangChain Settings
 
 ```python

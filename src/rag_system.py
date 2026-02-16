@@ -1,147 +1,81 @@
+from openai import OpenAI
+from langchain_community.llms import Ollama
+from langchain_core.messages import SystemMessage, HumanMessage
+
+
+
+# Initialize Llama 3.2 via Ollama
+
+ollama_host = "http://localhost:11434"  # Adjust if your Ollama server is running on a different URL or port
+ollama_base_url = f"{ollama_host}/v1"
+ollama_model="llama3.2"
+ollama_client = OpenAI(base_url=ollama_base_url, api_key="ollama")
+llm = Ollama(model="llama3.2", base_url=ollama_host, temperature=0)
+
+from pydantic import BaseModel,Field
+
+class RankOrder(BaseModel):
+   order: list[int] = Field(description="he order of relevance of chunks, from most relevant to least relevant, by chunk id number")
+
+def rerank(question, chunks):
+    system_prompt = """
+You are a document re-ranker.
+You are provided with a question and a list of relevant chunks of text from a query of a knowledge base.
+The chunks are provided in the order they were retrieved; this should be approximately ordered by relevance, but you may be able to improve on that.
+You must rank order the provided chunks by relevance to the question, with the most relevant chunk first.
+Reply only with the list of ranked chunk ids, nothing else. Include all the chunk ids you are provided with, reranked.
+strictly reply do not leave the order empty and do not add or remove any chunk ids.
 """
-RAG System - Main orchestrator for Retrieval-Augmented Generation
+    user_prompt = f"The user has asked the following question:\n\n{question}\n\nOrder all the chunks of text by relevance to the question, from most relevant to least relevant. Include all the chunk ids you are provided with, reranked.\n\n"
+    user_prompt += "Here are the chunks:\n\n"
+    for index, chunk in enumerate(chunks):
+        user_prompt += f"# CHUNK ID: {index + 1}:\n\n{chunk.page_content}\n\n"
+    user_prompt += "Reply only with the list of ranked chunk ids, nothing else."
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt},
+    ]
+    response = ollama_client.chat.completions.parse(
+        model="llama3.1",
+        messages=messages,
+        response_format=RankOrder,
+    )
+    parsed = response.choices[0].message.parsed
+    order = parsed.order
+    return [chunks[i - 1] for i in order if isinstance(i, int) and 1 <= i <= len(chunks)]
+
+
+
+def fetch_unranked_chunks(question, retriever):
+    relevant_chunks = retriever.invoke(question)
+    return relevant_chunks
+
+
+def rewrite_query(question, history=[]):
+    """Rewrite the user's question into a focused knowledge-base search query."""
+    message = f"""
+You are a query rewriter for a private knowledge base assistant.
+You help answer questions about the user profile (education, experience, skills, projects, achievements, and documents) stored in the knowledge base.
+You will receive the conversation history and the user's latest question.
+Rewrite the question into a short, specific search query that is most likely to retrieve the right chunks.
+
+Conversation history:
+{history}
+
+Rules:
+- Output only the rewritten query, nothing else.
+- Keep it short, precise, and concrete.
+- Do not mention document names, file paths, or the knowledge base.
+- If the question asks about a person, include their full name if known; otherwise keep the subject generic.
 """
+    reresponse = llm.invoke([SystemMessage(content=message), HumanMessage(content=question)])
+    return reresponse
 
-from typing import List, Dict, Tuple
-from src.data_ingestion import DataIngestionPipeline
-from src.chunking import RecursiveCharacterSplitter
-from src.embeddings import EmbeddingGenerator, HuggingFaceEmbedder
-from src.vector_store import VectorStore, InMemoryVectorStore
-from src.retrieval import Retriever, VectorRetriever
-from src.llm import LLMProvider, DummyLLM
-from src.utils import get_logger
-import json
+def merge_chunks(chunks, reranked):
+    merged = chunks[:] 
+    existing = [chunk.page_content for chunk in chunks]
+    for chunk in reranked:
+        if chunk.page_content not in existing:
+            merged.append(chunk)
+    return merged
 
-
-class RAGSystem:
-    """Main RAG system orchestrator"""
-    
-    def __init__(self, config_path: str = None):
-        """
-        Initialize RAG system
-        
-        Args:
-            config_path: Path to configuration JSON file
-        """
-        self.logger = get_logger(__name__)
-        self.config = self._load_config(config_path)
-        
-        # Initialize components
-        self.data_pipeline = DataIngestionPipeline()
-        self.text_splitter = RecursiveCharacterSplitter(
-            chunk_size=self.config.get('chunking', {}).get('chunk_size', 1000),
-            overlap=self.config.get('chunking', {}).get('overlap', 100)
-        )
-        self.embedder = EmbeddingGenerator()
-        self.vector_store = VectorStore()
-        self.retriever = Retriever()
-        self.llm_provider = LLMProvider()
-        
-        self.logger.info("RAG System initialized")
-    
-    def _load_config(self, config_path: str) -> Dict:
-        """Load configuration"""
-        if config_path and Path(config_path).exists():
-            with open(config_path, 'r') as f:
-                return json.load(f)
-        return {}
-    
-    def ingest_documents(self, data_path: str) -> int:
-        """
-        Ingest documents from directory
-        
-        Args:
-            data_path: Path to directory containing documents
-        
-        Returns:
-            Number of documents ingested
-        """
-        self.logger.info(f"Ingesting documents from {data_path}")
-        documents = self.data_pipeline.ingest_from_directory(data_path)
-        self.logger.info(f"Ingested {len(documents)} documents")
-        return len(documents)
-    
-    def build_index(self) -> int:
-        """
-        Build vector index from ingested documents
-        
-        Returns:
-            Number of chunks indexed
-        """
-        documents = self.data_pipeline.get_documents()
-        total_chunks = 0
-        
-        for doc in documents:
-            self.logger.info(f"Processing {doc['file_name']}")
-            
-            # Split document into chunks
-            for content in doc['content']:
-                chunks = self.text_splitter.split(content)
-                
-                # Generate embeddings
-                embeddings = self.embedder.embed_texts(chunks)
-                
-                # Add to vector store
-                metadata = [{'source': doc['file_name']} for _ in chunks]
-                self.vector_store.add(chunks, embeddings, metadata)
-                
-                total_chunks += len(chunks)
-        
-        self.logger.info(f"Built index with {total_chunks} chunks")
-        return total_chunks
-    
-    def query(self, query: str, top_k: int = 5) -> Dict:
-        """
-        Query the RAG system
-        
-        Args:
-            query: User query
-            top_k: Number of results to return
-        
-        Returns:
-            Dictionary with results and context
-        """
-        self.logger.info(f"Processing query: {query}")
-        
-        # Retrieve relevant documents
-        retrieved_docs = self.vector_store.search(
-            self.embedder.embed_text(query),
-            k=top_k
-        )
-        
-        # Prepare context
-        context = "\n\n".join([doc[0] for doc in retrieved_docs])
-        
-        # Generate response
-        prompt = f"""Based on the following context, answer the query.
-
-Context:
-{context}
-
-Query: {query}
-
-Answer:"""
-        
-        response = self.llm_provider.generate(prompt)
-        
-        return {
-            'query': query,
-            'response': response,
-            'sources': [doc[0][:100] for doc in retrieved_docs],
-            'scores': [doc[1] for doc in retrieved_docs]
-        }
-    
-    def save_index(self, path: str):
-        """Save vector index to disk"""
-        if hasattr(self.vector_store.store, 'save'):
-            self.vector_store.store.save(path)
-            self.logger.info(f"Index saved to {path}")
-    
-    def load_index(self, path: str):
-        """Load vector index from disk"""
-        if hasattr(self.vector_store.store, 'load'):
-            self.vector_store.store.load(path)
-            self.logger.info(f"Index loaded from {path}")
-
-
-from pathlib import Path
