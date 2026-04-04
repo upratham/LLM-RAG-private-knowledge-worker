@@ -1,3 +1,5 @@
+import os
+
 import gradio as gr
 from dotenv import load_dotenv
 from src.RAG_pipeline import answer_question
@@ -40,7 +42,7 @@ def main():
             put_message_in_chatbot, inputs=[message, chatbot], outputs=[message, chatbot]
         ).then(chat, inputs=chatbot, outputs=chatbot)
 
-    ui.launch()
+    ui.launch(server_name="0.0.0.0", server_port=int(os.environ.get("PORT", 7860)))
 
 
 
