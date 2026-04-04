@@ -41,3 +41,5 @@ pdfplumber
 langchain-huggingface==1.2.0
 transformers<5
 huggingface-hub<1.0.0
+langchain
+pypdf

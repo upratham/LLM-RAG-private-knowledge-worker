@@ -1,16 +1,83 @@
+import os
+
 from openai import OpenAI
 from langchain_community.llms import Ollama
 from langchain_core.messages import SystemMessage, HumanMessage
-
-
-
+from langchain_openai import ChatOpenAI
+import requests
+from dotenv import load_dotenv
+load_dotenv(override=True)
+openai_api_key=os.getenv("OPENAI_API_KEY")
 # Initialize Llama 3.2 via Ollama
 
-ollama_host = "http://localhost:11434"  # Adjust if your Ollama server is running on a different URL or port
-ollama_base_url = f"{ollama_host}/v1"
-ollama_model="llama3.2"
-ollama_client = OpenAI(base_url=ollama_base_url, api_key="ollama")
-llm = Ollama(model="llama3.2", base_url=ollama_host, temperature=0)
+# ollama_host = "http://localhost:11434"  # Adjust if your Ollama server is running on a different URL or port
+# ollama_base_url = f"{ollama_host}/v1"
+# ollama_model="llama3.2"
+# ollama_client = OpenAI(base_url=ollama_base_url, api_key="ollama")
+#llm= Ollama(model="llama3.2", base_url=ollama_host, temperature=0)
+MODEL_OPENAI = "gpt-4o-mini"
+llm_openai=ChatOpenAI(
+    model_name=MODEL_OPENAI,  # or gpt-3.5-turbo
+    temperature=0,
+    api_key=openai_api_key
+
+)
+# For pushover
+
+pushover_user = os.getenv("PUSHOVER_USER")
+pushover_token = os.getenv("PUSHOVER_TOKEN")
+pushover_url = "https://api.pushover.net/1/messages.json"
+
+if pushover_user:
+    print(f"Pushover user found and starts with {pushover_user[0]}")
+else:
+    print("Pushover user not found")
+
+if pushover_token:
+    print(f"Pushover token found and starts with {pushover_token[0]}")
+else:
+    print("Pushover token not found")
+
+def push(message):
+    print(f"Push: {message}")
+    payload = {"user": pushover_user, "token": pushover_token, "message": message}
+    requests.post(pushover_url, data=payload)
+
+def record_user_details(email, name="Name not provided", notes="not provided"):
+    if not notes:
+        notes = "not provided"
+    push(f"Recording interest from {name} with email {email} and notes {notes}")
+    return {"recorded": "ok"}
+
+record_user_details_json = {
+    "name": "record_user_details",
+    "description": "Use this tool to record that a user is interested in being in touch and provided an email address",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "email": {
+                "type": "string",
+                "description": "The email address of this user"
+            },
+            "name": {
+                "type": "string",
+                "description": "The user's name, if they provided it"
+            }
+            ,
+            "notes": {
+                "type": "string",
+                "description": "Any additional information about the conversation that's worth recording to give context"
+            }
+        },
+        "required": ["email","name","notes"],
+        "additionalProperties": False
+    }
+}
+tools = [{"type": "function", "function": record_user_details_json}]
+openai_client = OpenAI(api_key=openai_api_key)
+
+
+
 
 from pydantic import BaseModel,Field
 
@@ -35,8 +102,8 @@ strictly reply do not leave the order empty and do not add or remove any chunk i
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": user_prompt},
     ]
-    response = ollama_client.chat.completions.parse(
-        model="llama3.1",
+    response = openai_client.chat.completions.parse(
+        model=MODEL_OPENAI,
         messages=messages,
         response_format=RankOrder,
     )
@@ -68,7 +135,7 @@ Rules:
 - Do not mention document names, file paths, or the knowledge base.
 - If the question asks about a person, include their full name if known; otherwise keep the subject generic.
 """
-    reresponse = llm.invoke([SystemMessage(content=message), HumanMessage(content=question)])
+    reresponse = llm_openai.invoke([SystemMessage(content=message), HumanMessage(content=question)]).content
     return reresponse
 
 def merge_chunks(chunks, reranked):

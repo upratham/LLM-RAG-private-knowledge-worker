@@ -3,21 +3,20 @@ from dotenv import load_dotenv
 from src.RAG_pipeline import answer_question
 
 
-def format_context(context):
-    result = "<h2 style='color: #ff7800;'>Relevant Context</h2>\n\n"
-    for doc in context:
-        result += f"<span style='color: #ff7800;'>Source: {doc.metadata['source']}</span>\n\n"
-        result += doc.page_content + "\n\n"
-    return result
+# def format_context(context):
+#     result = "<h2 style='color: #ff7800;'>Relevant Context</h2>\n\n"
+#     for doc in context:
+#         result += f"<span style='color: #ff7800;'>Source: {doc.metadata['source']}</span>\n\n"
+#         result += doc.page_content + "\n\n"
+#     return result
 
 
 def chat(history):
     last_message = history[-1]["content"]
     prior = history[:-1]
-    answer, context = answer_question(last_message, prior)
+    answer = answer_question(last_message, prior)
     history.append({"role": "assistant", "content": answer})
-    return history, format_context(context)
-
+    return history
 
 def main():
     def put_message_in_chatbot(message, history):
@@ -25,33 +24,24 @@ def main():
 
     theme = gr.themes.Soft(font=["Inter", "system-ui", "sans-serif"])
 
-    with gr.Blocks(title="Private Knowledege Worker", theme=theme) as ui:
-        gr.Markdown("# 🏢 Private Knowledge Worker\nAsk me anything about your private knowledge base!")
+    with gr.Blocks(title="Digital Twin - Prathamesh Uravane", theme=theme) as ui:
+        gr.Markdown("# 🤖 Digital Twin - Prathamesh Uravane\nAsk me anything!")
 
-        with gr.Row():
-            with gr.Column(scale=1):
-                chatbot = gr.Chatbot(
-                    label="💬 Conversation", height=600, type="messages", show_copy_button=True
-                )
-                message = gr.Textbox(
-                    label="Your Question",
-                    placeholder="Ask anything about your private knowledge base...",
-                    show_label=False,
-                )
-
-            with gr.Column(scale=1):
-                context_markdown = gr.Markdown(
-                    label="📚 Retrieved Context",
-                    value="*Retrieved context will appear here*",
-                    container=True,
-                    height=600,
-                )
+        chatbot = gr.Chatbot(
+            label="💬 Conversation", height=600, type="messages", show_copy_button=True
+        )
+        message = gr.Textbox(
+            label="Your Question",
+            placeholder="Ask anything...",
+            show_label=False,
+        )
 
         message.submit(
             put_message_in_chatbot, inputs=[message, chatbot], outputs=[message, chatbot]
-        ).then(chat, inputs=chatbot, outputs=[chatbot, context_markdown])
+        ).then(chat, inputs=chatbot, outputs=chatbot)
 
-    ui.launch(inbrowser=True)
+    ui.launch()
+
 
 
 if __name__ == "__main__":
