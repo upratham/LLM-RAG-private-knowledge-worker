@@ -5,7 +5,7 @@ requests
 numpy
 pandas
 scipy
-# scikit-learn
+sentence_transformers
 matplotlib
 tqdm
 openai
