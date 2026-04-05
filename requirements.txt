@@ -5,14 +5,12 @@ requests
 numpy
 pandas
 scipy
-scikit-learn
+# scikit-learn
 matplotlib
-torch
-transformers
 tqdm
 openai
 pydantic
-gradio
+gradio==5.50.0
 langchain
 langchain-core
 langchain-text-splitters
@@ -27,11 +25,9 @@ jupyter-dash
 beautifulsoup4
 pydub
 modal
-ollama
 psutil
 setuptools
 speedtest-cli
-sentence_transformers
 feedparser
 protobuf==3.20.2
 wandb

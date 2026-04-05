@@ -4,7 +4,6 @@ from openai import OpenAI
 from langchain_community.llms import Ollama
 from langchain_core.messages import SystemMessage, HumanMessage
 from langchain_openai import ChatOpenAI
-import requests
 from dotenv import load_dotenv
 load_dotenv(override=True)
 openai_api_key=os.getenv("OPENAI_API_KEY")
@@ -22,58 +21,7 @@ llm_openai=ChatOpenAI(
     api_key=openai_api_key
 
 )
-# For pushover
 
-pushover_user = os.getenv("PUSHOVER_USER")
-pushover_token = os.getenv("PUSHOVER_TOKEN")
-pushover_url = "https://api.pushover.net/1/messages.json"
-
-if pushover_user:
-    print(f"Pushover user found and starts with {pushover_user[0]}")
-else:
-    print("Pushover user not found")
-
-if pushover_token:
-    print(f"Pushover token found and starts with {pushover_token[0]}")
-else:
-    print("Pushover token not found")
-
-def push(message):
-    print(f"Push: {message}")
-    payload = {"user": pushover_user, "token": pushover_token, "message": message}
-    requests.post(pushover_url, data=payload)
-
-def record_user_details(email, name="Name not provided", notes="not provided"):
-    if not notes:
-        notes = "not provided"
-    push(f"Recording interest from {name} with email {email} and notes {notes}")
-    return {"recorded": "ok"}
-
-record_user_details_json = {
-    "name": "record_user_details",
-    "description": "Use this tool to record that a user is interested in being in touch and provided an email address",
-    "parameters": {
-        "type": "object",
-        "properties": {
-            "email": {
-                "type": "string",
-                "description": "The email address of this user"
-            },
-            "name": {
-                "type": "string",
-                "description": "The user's name, if they provided it"
-            }
-            ,
-            "notes": {
-                "type": "string",
-                "description": "Any additional information about the conversation that's worth recording to give context"
-            }
-        },
-        "required": ["email","name","notes"],
-        "additionalProperties": False
-    }
-}
-tools = [{"type": "function", "function": record_user_details_json}]
 openai_client = OpenAI(api_key=openai_api_key)
 
 

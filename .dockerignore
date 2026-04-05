@@ -1,0 +1,8 @@
+.venv
+config
+docs
+notebooks
+README.md
+LICENSE
+.git
+.gitignore

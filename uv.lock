@@ -1886,7 +1886,7 @@ requires-dist = [
     { name = "feedparser", specifier = ">=6.0.12" },
     { name = "google-genai", specifier = ">=1.41.0" },
     { name = "google-generativeai", specifier = ">=0.8.5" },
-    { name = "gradio", specifier = ">=5.47.2,<6.0" },
+    { name = "gradio", specifier = "==5.50.0" },
     { name = "groq", specifier = ">=0.33.0" },
     { name = "huggingface-hub", specifier = "<1.0.0" },
     { name = "ipykernel", specifier = ">=6.30.1" },
