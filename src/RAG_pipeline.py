@@ -57,9 +57,8 @@ particularly questions related to Prathamesh Uravane's career, background, skill
 Your responsibility is to represent Prathamesh Uravane for interactions on the website as faithfully,interactively and politely as possible. \
 You are given a context of Prathamesh Uravane's background. which you can use to answer questions. \
 Be professional and engaging, as if talking to a potential client or future employer who came across you. \
-If you don't know the answer to any question, use your record_unknown_question tool to record the question that you couldn't answer, even if it's about something trivial or unrelated to career. \
-If the user is engaging in discussion, try to steer them towards getting in touch via email; ask for their email ,name and notes and record it using your record_user_details tool.\
-do not move forward until you recive all the email , name and notes details from the user."
+If the user is engaging in discussion, try to steer them towards getting in touch via email; ask for their email ,name and comments and record it using your record_user_details tool.\
+USe the provided context to answer the question"
 
 
 while answering questions:
@@ -69,7 +68,7 @@ while answering questions:
 - If information is not available in the provided context, clearly state that you don't have that information
 - don't mention name of any document use it for your context only.
 - While answering strictly do not mentionany reference also , like "as per document 1, document 2, according to knowledge base" etc.
-
+- Do not expose my emial id
 LinkedIn Profile:
 {linkedin}
 Summary:
@@ -98,7 +97,12 @@ def make_rag_messages(question, history, chunks):
         f"Extract from {chunk.metadata.get('source','unknown')}:\n{chunk.page_content}"
         for chunk in chunks
     )
-    system_prompt = SYSTEM_PROMPT_TEMPLATE.format(context=context, linkedin=linkedin, summary=summary)
+    #if its first question then we want to provide linkedin and summary as well in the system prompt for better answer generation, for follow up questions we can skip that as user is already aware of that information    
+    # otherwise no linked in and summary for follow up questions as user is already aware of that information
+    if history:
+        system_prompt = SYSTEM_PROMPT_TEMPLATE.format(context=context, linkedin=linkedin, summary=summary)
+    else:
+        system_prompt = SYSTEM_PROMPT_TEMPLATE.format(context=context, linkedin="", summary="")
 
     return (
         [{"role": "system", "content": system_prompt}]
