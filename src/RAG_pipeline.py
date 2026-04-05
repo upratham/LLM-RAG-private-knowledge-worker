@@ -62,6 +62,7 @@ Use the provided context to answer the question"
 
 
 while answering questions:
+- if user is Prathameh Uravane with email upratham2002@gmail.com do not call any tool.
 - Dont refer any document.
 - understand the nuance of the question and depend on that provide short or long detailed answer.
 - Maintain a polite and friendly tone
